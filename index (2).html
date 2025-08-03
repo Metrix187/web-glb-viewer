@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interactive GLB Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+    
+    <!-- React, ReactDOM, and Babel for in-browser JSX/TS transpilation -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+      body {
+        background-color: #111827; /* Corresponds to bg-gray-900 */
+        --progress-bar-color: '#a855f7';
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.1.1",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.1/",
+    "react/": "https://esm.sh/react@^19.1.1/"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-presets="react,typescript">
+      const { useState, useEffect, useRef, useCallback } = React;
+
+      // From: components/icons.tsx
+      const UploadIcon = (props) => (
+        <svg
+          {...props}
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+          />
+        </svg>
+      );
+
+      const ArrowLeftIcon = (props) => (
+        <svg 
+          {...props}
+          xmlns="http://www.w3.org/2000/svg" 
+          fill="none" 
+          viewBox="0 0 24 24" 
+          strokeWidth={1.5} 
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+        </svg>
+      );
+
+      const TextureIcon = (props) => (
+          <svg 
+              {...props}
+              xmlns="http://www.w3.org/2000/svg" 
+              fill="none" 
+              viewBox="0 0 24 24" 
+              strokeWidth={1.5} 
+              stroke="currentColor"
+          >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+          </svg>
+      );
+      
+      // From: components/FileUpload.tsx
+      const FileUpload = ({ onFileSelect }) => {
+        const [isDragging, setIsDragging] = useState(false);
+        const fileInputRef = useRef(null);
+
+        const handleDrag = useCallback((e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }, []);
+
+        const handleDragIn = useCallback((e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+            setIsDragging(true);
+          }
+        }, []);
+
+        const handleDragOut = useCallback((e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragging(false);
+        }, []);
+
+        const handleDrop = useCallback((e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragging(false);
+          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            onFileSelect(e.dataTransfer.files[0]);
+            e.dataTransfer.clearData();
+          }
+        }, [onFileSelect]);
+
+        const onButtonClick = () => {
+          fileInputRef.current?.click();
+        };
+
+        const onFileChange = (e) => {
+          if (e.target.files && e.target.files.length > 0) {
+            onFileSelect(e.target.files[0]);
+          }
+        };
+
+        return (
+          <div
+            className={`w-full max-w-2xl min-h-[20rem] flex flex-col items-center justify-center p-8 border-4 border-dashed rounded-xl transition-all duration-300 ${isDragging ? 'border-purple-500 bg-gray-700 scale-105' : 'border-gray-600 bg-gray-800'}`}
+            onDragEnter={handleDragIn}
+            onDragLeave={handleDragOut}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".glb"
+              className="hidden"
+              onChange={onFileChange}
+            />
+            <div className="text-center pointer-events-none">
+              <UploadIcon className="mx-auto h-16 w-16 text-gray-400" />
+              <h3 className="mt-4 text-xl sm:text-2xl font-semibold text-white">Drag and drop your GLB file here</h3>
+              <p className="mt-2 text-gray-400">or</p>
+              <div className="mt-4 pointer-events-auto">
+                <button
+                  onClick={onButtonClick}
+                  className="px-6 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-purple-500"
+                >
+                  Browse File
+                </button>
+              </div>
+              <p className="mt-6 text-sm text-gray-500">Only .glb files are supported</p>
+            </div>
+          </div>
+        );
+      };
+
+      // From: components/TextureEditor.tsx
+      const TextureEditor = ({ materials, onTextureUpload }) => {
+          const fileInputRefs = useRef([]);
+
+          const handleButtonClick = (index) => {
+              fileInputRefs.current[index]?.click();
+          };
+
+          const handleFileChange = (e, index) => {
+              if (e.target.files && e.target.files.length > 0) {
+                  onTextureUpload(index, e.target.files[0]);
+              }
+          };
+
+          return (
+              <div className="bg-gray-800 rounded-lg border border-gray-700 h-full flex flex-col overflow-hidden shadow-lg">
+                  <h2 className="text-lg font-semibold p-4 border-b border-gray-700 bg-gray-800/80 backdrop-blur-sm flex items-center gap-2">
+                      <TextureIcon className="w-6 h-6 text-purple-400" />
+                      Texture Editor
+                  </h2>
+                  <div className="flex-grow overflow-y-auto p-4 space-y-4">
+                      {materials.map((material, index) => {
+                          const hasPbr = material.pbrMetallicRoughness;
+                          return (
+                              <div key={index} className="bg-gray-700/50 p-4 rounded-lg border border-gray-600/50">
+                                  <h3 className="font-semibold text-white truncate" title={material.name || `Material ${index + 1}`}>
+                                      {material.name || `Material ${index + 1}`}
+                                  </h3>
+                                  {hasPbr ? (
+                                      <div className="mt-3">
+                                          <p className="text-sm text-gray-400 mb-2">Base Color Texture</p>
+                                          <input
+                                              type="file"
+                                              accept="image/png, image/jpeg"
+                                              className="hidden"
+                                              ref={(el) => { fileInputRefs.current[index] = el; }}
+                                              onChange={(e) => handleFileChange(e, index)}
+                                          />
+                                          <button
+                                              onClick={() => handleButtonClick(index)}
+                                              className="w-full px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-purple-500 text-sm"
+                                          >
+                                              Upload Image
+                                          </button>
+                                      </div>
+                                  ) : (
+                                      <p className="text-sm text-gray-500 mt-2">
+                                          This material type (unlit) does not support PBR textures.
+                                      </p>
+                                  )}
+                              </div>
+                          );
+                      })}
+                  </div>
+              </div>
+          );
+      };
+
+      // From: App.tsx
+      const App = () => {
+          const [file, setFile] = useState(null);
+          const [fileUrl, setFileUrl] = useState(null);
+          const [error, setError] = useState(null);
+          const [materials, setMaterials] = useState([]);
+          const [textureUrls, setTextureUrls] = useState([]);
+          const modelViewerRef = useRef(null);
+
+          useEffect(() => {
+              if (!file) {
+                  if (fileUrl) {
+                      URL.revokeObjectURL(fileUrl);
+                  }
+                  setFileUrl(null);
+                  return;
+              }
+
+              const url = URL.createObjectURL(file);
+              setFileUrl(url);
+
+              return () => {
+                  URL.revokeObjectURL(url);
+                  setFileUrl(null);
+              };
+          }, [file]);
+
+          useEffect(() => {
+              const mv = modelViewerRef.current;
+              if (!mv) return;
+
+              const handleLoad = () => {
+                  if (mv.model) {
+                      setMaterials(mv.model.materials);
+                  }
+              };
+
+              mv.addEventListener('load', handleLoad);
+              return () => {
+                  mv.removeEventListener('load', handleLoad);
+              };
+          }, [fileUrl]);
+
+          useEffect(() => {
+              return () => {
+                  textureUrls.forEach(url => URL.revokeObjectURL(url));
+              }
+          }, [textureUrls]);
+
+          const handleFileSelect = (selectedFile) => {
+              if (selectedFile && selectedFile.name.toLowerCase().endsWith('.glb')) {
+                  setFile(selectedFile);
+                  setError(null);
+              } else {
+                  setError('Please select a valid .glb file.');
+                  setTimeout(() => setError(null), 3000);
+              }
+          };
+
+          const handleClearFile = () => {
+              setFile(null);
+              setMaterials([]);
+              textureUrls.forEach(url => URL.revokeObjectURL(url));
+              setTextureUrls([]);
+          };
+
+          const handleTextureUpload = async (materialIndex, textureFile) => {
+              const mv = modelViewerRef.current;
+              if (!mv || !mv.model || !mv.createTexture) return;
+
+              const url = URL.createObjectURL(textureFile);
+              setTextureUrls(prev => [...prev, url]);
+
+              try {
+                  const texture = await mv.createTexture(url);
+                  const material = mv.model.materials[materialIndex];
+                  if (material.pbrMetallicRoughness) {
+                      material.pbrMetallicRoughness.baseColorTexture.setTexture(texture);
+                  } else {
+                      setError('This material does not support base color textures.');
+                      setTimeout(() => setError(null), 3000);
+                  }
+              } catch (e) {
+                  console.error("Error applying texture:", e);
+                  setError('Failed to apply texture.');
+                  setTimeout(() => setError(null), 3000);
+              }
+          };
+
+          return (
+              <div className="flex flex-col h-screen bg-gray-900 text-gray-100 font-sans antialiased">
+                  <header className="flex-shrink-0 p-4 border-b border-gray-700/50 flex items-center justify-between shadow-md bg-gray-800/80 backdrop-blur-sm z-10">
+                      <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 text-transparent bg-clip-text">
+                          Interactive GLB Viewer
+                      </h1>
+                      {fileUrl && (
+                          <button 
+                              onClick={handleClearFile} 
+                              className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm font-medium"
+                          >
+                              <ArrowLeftIcon className="w-5 h-5" />
+                              <span>Upload New</span>
+                          </button>
+                      )}
+                  </header>
+
+                  <main className="flex-grow flex p-4 bg-gray-900 relative">
+                      {error && (
+                          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg animate-pulse z-20">
+                              {error}
+                          </div>
+                      )}
+                      {!fileUrl ? (
+                           <div className="flex-grow flex items-center justify-center w-full">
+                              <FileUpload onFileSelect={handleFileSelect} />
+                          </div>
+                      ) : (
+                          <div className="w-full h-full flex flex-col md:flex-row gap-4">
+                              <div className="flex-grow h-full min-h-[50vh] rounded-lg overflow-hidden border border-gray-700 bg-gray-800 shadow-2xl">
+                                  <model-viewer
+                                      ref={modelViewerRef}
+                                      src={fileUrl}
+                                      alt="A 3D model"
+                                      camera-controls
+                                      auto-rotate
+                                      environment-image="neutral"
+                                      shadow-intensity="1"
+                                      style={{ width: '100%', height: '100%' }}
+                                  >
+                                  </model-viewer>
+                              </div>
+                              <div className="w-full md:w-80 lg:w-96 flex-shrink-0 h-full max-h-[45vh] md:max-h-full">
+                                 {materials.length > 0 && (
+                                     <TextureEditor 
+                                         materials={materials} 
+                                         onTextureUpload={handleTextureUpload}
+                                     />
+                                 )}
+                              </div>
+                          </div>
+                      )}
+                  </main>
+
+                  <footer className="flex-shrink-0 text-center p-2 text-sm text-gray-500 border-t border-gray-700/50 bg-gray-800/80">
+                      <p>
+                          {fileUrl 
+                              ? 'Click and drag to rotate, scroll to zoom, right-click and drag to pan.' 
+                              : 'Upload a .glb file to view it in 3D.'}
+                      </p>
+                  </footer>
+              </div>
+          );
+      };
+      
+      // From: index.tsx
+      const rootElement = document.getElementById('root');
+      if (!rootElement) {
+        throw new Error("Could not find root element to mount to");
+      }
+      const root = ReactDOM.createRoot(rootElement);
+      root.render(
+        <React.StrictMode>
+          <App />
+        </React.StrictMode>
+      );
+    </script>
+  </body>
+</html>
